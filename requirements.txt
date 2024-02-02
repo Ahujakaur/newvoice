@@ -1,4 +1,3 @@
-
 whisper-openai
 openapi
 
@@ -31,16 +30,16 @@ pydantic
 requests
 sniffio
 tensorflow
-uvicorn 
+uvicorn
 
 
                       
-apturl                            
+                         
 argon2-cffi                       
           
 array-record                      
                    
-asyncio                           
+                          
 atila                             
 attrs                             
 audioread                         
@@ -96,7 +95,7 @@ pickleshare
 Pillow                            
 Pillow-PIL                        
 pip                               
-                     
+translate           
 
 pydantic                          
 
