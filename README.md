@@ -8,7 +8,7 @@ But user much be sure about customise mp3 voice recordings and similar tags will
 
 ## Installations
 
-clone project using : https://github.com/arshd1313/sound-to-tags.git
+clone project using :  https://shikha_ln@bitbucket.org/shikha_ln/voice-to-text-generator.git
 
 Run pip install -r requirements.txt
 
