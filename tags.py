@@ -18,7 +18,7 @@ class InputData(BaseModel):
 class VoiceInput(BaseModel):
     audio_file: UploadFile
 
-csv_file_path = "etperify_new - Sheet1.csv"
+csv_file_path = "expertify_new-Sheet1.csv"
 
 
 

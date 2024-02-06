@@ -1,0 +1,4 @@
+__pycache__
+old_audio/*
+env/*
+venv/*
