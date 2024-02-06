@@ -18,7 +18,7 @@ class InputData(BaseModel):
 class VoiceInput(BaseModel):
     audio_file: UploadFile
 
-csv_file_path = "/home/lenovo/sound-to-text/etperify_new - Sheet1.csv"
+csv_file_path = "etperify_new - Sheet1.csv"
 
 
 
@@ -35,18 +35,15 @@ def extract_tags_from_csv(input_text, csv_content):
         csv_input = row.get("input")
         tags = row.get("tags")
 
-        print(f"csv_input: {csv_input}, input_text: {input_text}")
-
         if csv_input and tags:
             # Check if any word from input_text is similar to any word in csv_input
-            for word in input_text:
-                for csv_word in csv_input.lower().split():
-                    if word.lower() == csv_word:
-                        tags_list = [tag.strip() for tag in tags.split(',')]
-                        generated_tags.update(tags_list)
+            for word in input_text.split():
+                if word.lower() in csv_input.lower():
+                    # If a word from input_text is found in csv_input, add corresponding tags
+                    tags_list = [tag.strip() for tag in tags.split(',')]
+                    generated_tags.update(tags_list)
 
     return list(generated_tags)
-
 
 
 def voice_to_tags(audio_file_path, csv_content):
@@ -68,8 +65,11 @@ def voice_to_tags(audio_file_path, csv_content):
         translator = Translator(to_lang="en")
         translated_words = [translator.translate(word) for word in words]
 
+        # Join the translated words into a single string
+        translated_text = " ".join(translated_words)
+
         # Extract tags for words similar to the input from CSV content
-        generated_tags = extract_tags_from_csv(translated_words, csv_content)
+        generated_tags = extract_tags_from_csv(translated_text, csv_content)
 
         return {"text": filtered_text, "translated_words": translated_words, "generated_tags": generated_tags}
 
@@ -81,28 +81,47 @@ def voice_to_tags(audio_file_path, csv_content):
         return {"text": f"Error: File not found at {audio_file_path}", "generated_tags": []}
 
 
-def text_input(text_or_audio, csv_content):
-    if isinstance(text_or_audio, str):
-        # If the input is text, directly use it
-        text = text_or_audio.lower()
+
+def text_input(input_data, csv_content):
+    if isinstance(input_data, str):
+        # If the input is a string, directly use it after stripping leading/trailing whitespace
+        input_text = input_data.strip().lower()
+    elif isinstance(input_data, UploadFile):
+        # If the input is a file, read its content and strip leading/trailing whitespace
+        input_text = input_data.file.read().decode("utf-8").strip().lower()
     else:
-        # If the input is audio, perform speech recognition
-        audio_data = text_or_audio.file.read()
+        return {"error": "Invalid input type"}  # Return an error for invalid input type
 
-        # Convert to PCM WAV using pydub for MP3 files
-        audio = AudioSegment.from_mp3(io.BytesIO(audio_data))
-        audio.export("audio_files/temp_audio.wav", format="wav")
+    print("Input text:", input_text)
 
-        # Use speech recognition to convert audio to text
-        recognizer = sr.Recognizer()
-        with sr.AudioFile("audio_files/temp_audio.wav") as source:
-            audio_text = recognizer.record(source)
-        text = recognizer.recognize_google(audio_text)
+    # Initialize an empty set to store the generated tags
+    generated_tags = set()
 
-    # Extract tags from CSV content
-    generated_tags = extract_tags_from_csv(text, csv_content)
+    # Check if any word from input_text is similar to any word in CSV and extract corresponding tags
+    for row in csv_content:
+        csv_input = row.get("input")
+        tags = row.get("tags")
 
-    return {"input": text, "generated_tags": generated_tags}
+        print("CSV input:", csv_input)
+
+        # Split the CSV input into individual words
+        csv_words = csv_input.lower().split()
+
+        # Check if any word from input_text is a substring of any word in csv_input
+        for word in input_text.split():
+            print("Checking word:", word)
+            for csv_word in csv_words:
+                if word in csv_word:
+                    # If a match is found, add corresponding tags to the set
+                    tags_list = [tag.strip() for tag in tags.split(',')]
+                    generated_tags.update(tags_list)
+                    break  # Exit the loop once a match is found for efficiency
+
+    print("Generated tags:", generated_tags)
+
+    return {"input": input_text, "generated_tags": list(generated_tags)}
+
+
 
 
 @app.post("/process_voice")
@@ -136,7 +155,7 @@ async def process_input(input_data: InputData):
     # Load CSV content
     csv_content = load_csv_content(csv_file_path) 
 
-    # Extract generated tags from input (text or audio)
+    # Extract generated tags from input (text or file)
     result = text_input(input_data.input, csv_content)
 
     return result

@@ -18,8 +18,8 @@ uvicorn tags:app --reload
 
 ## Requirements (dependencies)
 
-whisper-openai
 
+whisper-openai
 openapi
 
 fastapi
@@ -27,43 +27,28 @@ fastapi
 pickleshare
 
 audiosegment
-
 subprocessor
 
 python-multipart
-
 audiosegment
 
 SpeechRecognition
-
 pydub
-
 responses
-
 file-reader
 
 recognizer
-
 gTTS
-
 transformers
-
 datasets
 
 numpy
-
 pickleshare
-
 pillow
-
 pydantic
-
 requests
-
 sniffio
-
 tensorflow
-
 uvicorn
 
 argon2-cffi
@@ -71,17 +56,12 @@ argon2-cffi
 array-record
 
 atila
-
 attrs
-
 audioread
-
 auto-uploadfile-test
 
 boto
-
 boto3
-
 botocore
 
 cv2-tools
@@ -91,35 +71,21 @@ debugpy
 recognizer
 
 fonttools
-
 frozenlist
-
 fsspec
-
 gast
-
 translator
-
 pipe
-
 gTTS
-
 audiofile
-
 h11
-
 h2
-
 h5py
 
 httpcore
-
 httpie
-
 httplib2
-
 httptools
-
 httpx
 
 humanfriendly
@@ -129,45 +95,33 @@ jupyter
 keras
 
 matplotlib
-
 networkx
 
 numpy
-
 pydentic
 
 pandas
 
 pickleshare
-
 Pillow
-
 Pillow-PIL
-
 pip
-
 translate
 
 pydantic
 
 pytesseract
-
 pytest
 
 pyttsx3
-
 pyttsx4
 
 regex
-
 reportlab
-
 requests
 
 scikit-learn
-
 scipy
-
 seaborn
 
 selenium
