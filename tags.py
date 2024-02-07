@@ -1,53 +1,95 @@
 from fastapi import FastAPI, File, UploadFile
 import subprocess
 import io
+from pydantic import BaseModel
+
+
 import csv
+
+import os
 import re
 import speech_recognition as sr
 from pydantic import BaseModel
 from pydub import AudioSegment
+from typing import Union
+from nltk.tokenize import word_tokenize  # Add this import statement
+
 import matplotlib.pyplot as plt
 import numpy as np
 from translate import Translator
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.pipeline import make_pipeline
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.svm import SVC
+from sklearn.preprocessing import MultiLabelBinarizer
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 
+model_name = 'bert-base-nli-mean-tokens'
+bert_model = SentenceTransformer(model_name)
 app = FastAPI()
-
+csv_content = None
 class InputData(BaseModel):
     input: str
-
+    
 class VoiceInput(BaseModel):
     audio_file: UploadFile
 
-csv_file_path = "/home/lenovo/sound-to-text/etperify_new - Sheet1.csv"
-
-
-
+common_words_to_ignore = set(["help", "need", "i","develope"])
 
 def load_csv_content(csv_file_path):
     with open(csv_file_path, 'r') as file:
         csv_reader = csv.DictReader(file)
         return list(csv_reader)
 
-def extract_tags_from_csv(input_text, csv_content):
-    generated_tags = set()
+def clean_tags(tags):
+    # Remove +ACI- characters from tags
+    cleaned_tags = [tag.replace("+ACI-", "").strip() for tag in tags]
+    # Remove non-printable characters using regular expression
+    cleaned_tags = [re.sub(r'[\x00-\x1F\x7F-\x9F]', '', tag) for tag in cleaned_tags]
+    return cleaned_tags
 
+csv_file_path = "etperify_new - Sheet1.csv"
+csv_content = load_csv_content(csv_file_path)
+input_texts = [row["input"] for row in csv_content]
+tags = [row["tags"].split(',') for row in csv_content]
+mlb = MultiLabelBinarizer()
+binary_tags = mlb.fit_transform(tags)
+
+vectorizer = TfidfVectorizer()
+classifier = OneVsRestClassifier(SVC(kernel='linear'))
+model = make_pipeline(vectorizer, classifier)
+model.fit(input_texts, binary_tags)
+
+
+def extract_tags_from_csv_bert(input_text, csv_content):
+    # Embed the input text using BERT
+    input_embedding = bert_model.encode([input_text])[0]
+
+    # Calculate the similarity between input text embedding and CSV text embeddings
+    similarities = []
     for row in csv_content:
         csv_input = row.get("input")
-        tags = row.get("tags")
+        csv_embedding = bert_model.encode([csv_input])[0]
+        similarity = cosine_similarity([input_embedding], [csv_embedding])[0][0]
+        similarities.append((csv_input, similarity))
 
-        print(f"csv_input: {csv_input}, input_text: {input_text}")
+    # Sort the similarities in descending order
+    similarities.sort(key=lambda x: x[1], reverse=True)
 
-        if csv_input and tags:
-            # Check if any word from input_text is similar to any word in csv_input
-            for word in input_text:
-                for csv_word in csv_input.lower().split():
-                    if word.lower() == csv_word:
-                        tags_list = [tag.strip() for tag in tags.split(',')]
-                        generated_tags.update(tags_list)
+    # Calculate the total similarity score for normalization
+    total_similarity = sum(similarity for _, similarity in similarities)
 
-    return list(generated_tags)
+    # Extract top similar tags with their percentage of similarity
+    top_similar_tags = []
+    for csv_input, similarity in similarities[:7]:
+        similarity_percent = (similarity / total_similarity) * 100
+        cleaned_tag = clean_tags([csv_input])[0]  # Clean the extracted tag
+        top_similar_tags.append((cleaned_tag, similarity_percent))
 
+    return top_similar_tags
 
+# Define the rest of your functions and endpoints here
 
 def voice_to_tags(audio_file_path, csv_content):
     recognizer = sr.Recognizer()
@@ -62,16 +104,11 @@ def voice_to_tags(audio_file_path, csv_content):
 
         # Filter out non-alphabetic characters and extract words
         filtered_text = re.sub(r'[^a-zA-Z\s]', '', text)
-        words = filtered_text.lower().split()
-
-        # Translate the detected words
-        translator = Translator(to_lang="en")
-        translated_words = [translator.translate(word) for word in words]
 
         # Extract tags for words similar to the input from CSV content
-        generated_tags = extract_tags_from_csv(translated_words, csv_content)
+        generated_tags = extract_tags_from_csv_bert(filtered_text, csv_content)
 
-        return {"text": filtered_text, "translated_words": translated_words, "generated_tags": generated_tags}
+        return {"text": filtered_text, "generated_tags": generated_tags[:10]}
 
     except sr.UnknownValueError:
         return {"text": "Speech Recognition could not understand audio", "generated_tags": []}
@@ -80,33 +117,42 @@ def voice_to_tags(audio_file_path, csv_content):
     except FileNotFoundError:
         return {"text": f"Error: File not found at {audio_file_path}", "generated_tags": []}
 
-
-def text_input(text_or_audio, csv_content):
-    if isinstance(text_or_audio, str):
-        # If the input is text, directly use it
-        text = text_or_audio.lower()
+def text_input(input_data, csv_content):
+    if isinstance(input_data, str):
+        # Tokenize the input text and filter out common words
+        input_text = [word.lower() for word in word_tokenize(input_data.strip().lower()) if word.lower() not in common_words_to_ignore]
+    elif isinstance(input_data, UploadFile):
+        # If the input is a file, read its content, tokenize it, and filter out common words
+        input_text = [word.lower() for word in word_tokenize(input_data.file.read().decode("utf-8").strip().lower()) if word.lower() not in common_words_to_ignore]
     else:
-        # If the input is audio, perform speech recognition
-        audio_data = text_or_audio.file.read()
+        return {"error": "Invalid input type"}  # Return an error for invalid input type
 
-        # Convert to PCM WAV using pydub for MP3 files
-        audio = AudioSegment.from_mp3(io.BytesIO(audio_data))
-        audio.export("audio_files/temp_audio.wav", format="wav")
+    # Initialize an empty set to store the generated tags
+    generated_tags = set()
 
-        # Use speech recognition to convert audio to text
-        recognizer = sr.Recognizer()
-        with sr.AudioFile("audio_files/temp_audio.wav") as source:
-            audio_text = recognizer.record(source)
-        text = recognizer.recognize_google(audio_text)
+    # Check if any word from input_text is similar to any word in CSV and extract corresponding tags
+    for row in csv_content:
+        csv_input = row.get("input")
+        tags = row.get("tags")
 
-    # Extract tags from CSV content
-    generated_tags = extract_tags_from_csv(text, csv_content)
+        # Split the CSV input into individual words
+        csv_words = csv_input.lower().split()
 
-    return {"input": text, "generated_tags": generated_tags}
+        # Check if any word from input_text is a substring of any word in csv_input
+        for word in input_text:
+            for csv_word in csv_words:
+                if word in csv_word:
+                    # If a match is found, add corresponding tags to the set
+                    tags_list = [tag.strip() for tag in tags.split(',')]
+                    generated_tags.update(tags_list)
+                    break  # Exit the loop once a match is found for efficiency
 
+    return {"input": input_text, "generated_tags": list(generated_tags)}
 
 @app.post("/process_voice")
 async def process_voice(audio_file: UploadFile = File(...)):
+    csv_file_path = "etperify_new - Sheet1.csv"  # Set the CSV file path here
+    
     # Save the uploaded audio file
     audio_data = await audio_file.read()
 
@@ -131,12 +177,23 @@ async def process_voice(audio_file: UploadFile = File(...)):
 
     return result
 
-@app.post("/process_input")
-async def process_input(input_data: InputData):
-    # Load CSV content
-    csv_content = load_csv_content(csv_file_path) 
-
-    # Extract generated tags from input (text or audio)
-    result = text_input(input_data.input, csv_content)
-
-    return result
+@app.post("/predict")
+async def predict(input_data: InputData):
+    # Process the input data (text or audio)
+    input_text = input_data.input
+    
+    # Extract tags for the input text from CSV content using BERT embeddings
+    generated_tags = extract_tags_from_csv_bert(input_text, csv_content)
+    
+    # Make predictions using your trained model
+    predictions = model.predict([input_text])  # Adjust this according to your model
+    
+    # Convert binary predictions back to tags
+    predicted_tags = mlb.inverse_transform(predictions)
+    
+    # Retrieve only the most similar 10 tags
+    if predicted_tags:
+        predicted_tags = predicted_tags[0][:7]  # Take only the first 10 tags
+    
+    # Return the predictions
+    return {"input": input_text, "generated_tags": generated_tags, "predicted_tags": predicted_tags}

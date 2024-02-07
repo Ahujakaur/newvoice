@@ -1,0 +1,10 @@
+MANIFEST.in
+README.md
+setup.cfg
+setup.py
+da_pkg_resources/__init__.py
+da_pkg_resources.egg-info/PKG-INFO
+da_pkg_resources.egg-info/SOURCES.txt
+da_pkg_resources.egg-info/dependency_links.txt
+da_pkg_resources.egg-info/not-zip-safe
+da_pkg_resources.egg-info/top_level.txt

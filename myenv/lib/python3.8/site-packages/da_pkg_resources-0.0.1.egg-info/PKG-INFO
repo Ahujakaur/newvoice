@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: da-pkg-resources
+Version: 0.0.1
+Summary: A fork of pkg_resources.
+Home-page: https://docassemble.org
+Author: Jonathan Pyle
+Author-email: jhpyle@gmail.com
+License: The MIT License (MIT)
+Description: # da_pkg_resources
+        
+        A fork of setuptools / pkg_resources
+        
+        ## Author
+        
+        Jonathan Pyle, jhpyle@gmail.com
+Platform: UNKNOWN
+Description-Content-Type: text/markdown
