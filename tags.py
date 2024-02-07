@@ -2,6 +2,8 @@ from fastapi import FastAPI, File, UploadFile
 import subprocess
 import io
 import csv
+from pydantic.typing import Schema
+import os
 import re
 import speech_recognition as sr
 from pydantic import BaseModel
@@ -44,7 +46,7 @@ def clean_tags(tags):
     cleaned_tags = [re.sub(r'[\x00-\x1F\x7F-\x9F]', '', tag) for tag in cleaned_tags]
     return cleaned_tags
 
-csv_file_path = "etperify_new - Sheet1.csv"
+csv_file_path = "expertify_new-Sheet1.csv"
 csv_content = load_csv_content(csv_file_path)
 input_texts = [row["input"] for row in csv_content]
 tags = [row["tags"].split(',') for row in csv_content]
